@@ -1,270 +1,149 @@
+From tkinter import *
+Import tkinter
+Import numpy as np
+Import imutils
+Import cv2 as cv
+From keras.preprocessing.image import ImageDataGenerator
+From keras.models import Sequential
+From keras.layers import Convolution2D, MaxPooling2D, ZeroPadding2D
+From keras.layers import Activation, Dropout, Flatten, Dense
+Import os
+From keras.preprocessing import image
+From tkinter import filedialog
+From tkinter.filedialog import askopenfilename
 
+Main = tkinter.Tk()
+Main.title(“Video-Based Abnormal Driving Behavior Detection”)
+Main.geometry(“800x500”)
 
-import os
-import sys
-import tkinter as tk
-from tkinter import filedialog, messagebox
+Global awgrd_model
+Global video
 
-import numpy as np
-import cv2 as cv
-
-# Use TensorFlow's Keras
-from tensorflow.keras.models import Sequential
-from tensorflow.keras.layers import Conv2D, MaxPooling2D, Flatten, Dense, Dropout, Activation
-from tensorflow.keras.preprocessing.image import ImageDataGenerator, img_to_array, load_img
-from tensorflow.keras.optimizers import Adam
-
-
-IMG_W, IMG_H = 150, 150
-INPUT_SHAPE = (IMG_W, IMG_H, 3)
-
-
-TRAIN_DIR = os.path.join("dataset", "imgs", "train")
-VAL_DIR   = os.path.join("dataset", "imgs", "validation")
-
-
-WEIGHTS_ROOT_A = os.path.join("AWGRD_model.h5")            # as in the PDF (root file)
-WEIGHTS_ROOT_B = os.path.join("models", "AWGRD_model.h5")  # alternate location (common repo layout)
-
-
-EPOCHS = 10
-NB_TRAIN_SAMPLES = 22424
-NB_VAL_SAMPLES   = 1254
-BATCH_SIZE = 32
-
-# Kaggle State Farm-like class names (10 classes)
-CLASS_NAMES = [
-    "safe driving",                    # 0
-    "texting - right",                 # 1
-    "talking on the phone - right",    # 2
-    "texting - left",                  # 3
-    "talking on the phone - left",     # 4
-    "operating the radio",             # 5
-    "drinking",                        # 6
-    "reaching behind",                 # 7
-    "hair and makeup",                 # 8
-    "talking to passenger"             # 9
-]
-
-
-model = None
-video_capture = None
-selected_video_path = None
-
-
-# -----------------------------
-# Model definition / training
-# -----------------------------
-def build_model(input_shape=INPUT_SHAPE, num_classes=10):
-    """Simple CNN consistent with the PDF’s spirit (Conv-Pool x2 -> Dense -> Softmax)."""
-    m = Sequential()
-    m.add(Conv2D(32, (3, 3), activation='relu', input_shape=input_shape))
-    m.add(MaxPooling2D(pool_size=(2, 2)))
-
-    m.add(Conv2D(64, (3, 3), activation='relu'))
-    m.add(MaxPooling2D(pool_size=(2, 2)))
-
-    m.add(Flatten())
-    m.add(Dense(128, activation='relu'))
-    m.add(Dropout(0.5))
-    m.add(Dense(num_classes, activation='softmax'))
-
-    m.compile(optimizer=Adam(learning_rate=1e-3),
-              loss='categorical_crossentropy',
-              metrics=['accuracy'])
-    return m
-
-
-def train_if_possible(m):
-    if not (os.path.isdir(TRAIN_DIR) and os.path.isdir(VAL_DIR)):
-        return False  # cannot train; dataset not present
-
-    print("[INFO] Training started (from PDF settings) ...")
-    train_datagen = ImageDataGenerator(rescale=1./255)
-    val_datagen   = ImageDataGenerator(rescale=1./255)
-
-    train_gen = train_datagen.flow_from_directory(
-        TRAIN_DIR,
-        target_size=(IMG_W, IMG_H),
-        batch_size=BATCH_SIZE,
-        class_mode='categorical'
-    )
-
-    val_gen = val_datagen.flow_from_directory(
-        VAL_DIR,
-        target_size=(IMG_W, IMG_H),
-        batch_size=BATCH_SIZE,
-        class_mode='categorical'
-    )
-
-    steps_per_epoch = max(1, NB_TRAIN_SAMPLES // BATCH_SIZE)
-    validation_steps = max(1, NB_VAL_SAMPLES // BATCH_SIZE)
-
-    m.fit(
-        train_gen,
-        steps_per_epoch=steps_per_epoch,
-        epochs=EPOCHS,
-        validation_data=val_gen,
-        validation_steps=validation_steps
-    )
-
-  
-    os.makedirs(os.path.dirname(WEIGHTS_ROOT_B), exist_ok=True)
-    m.save_weights(WEIGHTS_ROOT_B)
-    print(f"[INFO] Training finished. Weights saved to: {WEIGHTS_ROOT_B}")
-    return True
-
-
-def generate_and_load_model():
-
-    global model
-
-    status_var.set("Building model ...")
-    root.update_idletasks()
-
-    m = build_model()
-
+Def loadModel():
+    Global awgrd_model
+    Img_width, img_height = 150, 150
+    Train_data_dir = ‘dataset/imgs/train’
+    Validation_data_dir = ‘dataset/imgs/validation’
+    Nb_train_samples = 22424
+    Nb_validation_samples = 1254
+    Nb_epoch = 10
+    If os.path.exists(‘AWGRD_model.h5’):
+        Awgrd_model = Sequential()
+        Awgrd_model.add(Convolution2D(32, 3, 3, input_shape = (150, 150, 3), activation = ‘relu’))
+        Awgrd_model.add(MaxPooling2D(pool_size = (2, 2)))
+        Awgrd_model.add(Convolution2D(32, 3, 3, activation = ‘relu’))
+        Awgrd_model.add(MaxPooling2D(pool_size = (2, 2)))
+        Awgrd_model.add(Flatten())
+        Awgrd_model.add(Dense(output_dim = 128, activation = ‘relu’))
+        Awgrd_model.add(Dense(output_dim = 10, activation = ‘softmax’))
+        Awgrd_model.compile(optimizer = ‘adam’, loss = ‘categorical_crossentropy’, metrics = [‘accuracy’])
+        Awgrd_model.load_weights(‘AWGRD_model.h5’)
+        Print(awgrd_model.summary())
+        Pathlabel.config(text=”          AWGRD Model Generated Successfully”)
+    Else:
+        Awgrd_model = Sequential()
+        Awgrd_model.add(Convolution2D(32, 3, 3, input_shape = (150, 150, 3), activation = ‘relu’))
+        Awgrd_model.add(MaxPooling2D(pool_size = (2, 2)))
+        Awgrd_model.add(Convolution2D(32, 3, 3, activation = ‘relu’))
+        Awgrd_model.add(MaxPooling2D(pool_size = (2, 2)))
+        Awgrd_model.add(Flatten())
+        Awgrd_model.add(Dense(output_dim = 128, activation = ‘relu’))
+        Awgrd_model.add(Dense(output_dim = 10, activation = ‘softmax’))
+        Awgrd_model.compile(optimizer = ‘adam’, loss = ‘categorical_crossentropy’, metrics = [‘accuracy’])
+        Train_datagen = ImageDataGenerator(rescale=1.0/255, shear_range=0.2, zoom_range=0.2, horizontal_flip=True)
+        Test_datagen = ImageDataGenerator(rescale=1.0/255)
+        Train_generator = train_datagen.flow_from_directory(train_data_dir, target_size=(img_height, img_width), batch_size=32, class_mode=’categorical’)
+        Validation_generator = train_datagen.flow_from_directory(validation_data_dir, target_size=(img_height, img_width), batch_size=32, class_mode=’categorical’)
+        Awgrd_model.fit_generator(train_generator, samples_per_epoch=nb_train_samples, nb_epoch=nb_epoch, validation_data=validation_generator, nb_val_samples=nb_validation_samples)
+        Awgrd_model.save_weights(‘driver_state_detection_small_CNN.h5’)
+        Pathlabel.config(text=”          AWGRD Model Generated Successfully”)
     
-    weights_path = None
-    if os.path.isfile(WEIGHTS_ROOT_B):
-        weights_path = WEIGHTS_ROOT_B
-    elif os.path.isfile(WEIGHTS_ROOT_A):
-        weights_path = WEIGHTS_ROOT_A
-
-    if weights_path:
-        try:
-            m.load_weights(weights_path)
-            status_var.set(f"Loaded weights: {weights_path}")
-            print(f"[INFO] Loaded weights from {weights_path}")
-        except Exception as e:
-            print(f"[WARN] Could not load weights from {weights_path}: {e}")
-            status_var.set("Weights load failed; attempting training (if data present) ...")
-            trained = train_if_possible(m)
-            if not trained:
-                status_var.set("Model built; no weights available, no dataset to train.")
-    else:
-        # No weights found: try to train if dataset exists
-        status_var.set("No weights found; attempting training (if data present) ...")
-        trained = train_if_possible(m)
-        if not trained:
-            status_var.set("Model built; no weights and no dataset. Inference will be random.")
-
-    model = m
-
-
-
-def preprocess_frame_for_model(frame_bgr):
-    """Resize to 150x150 RGB, scale 0..1, add batch dimension."""
-    frame_rgb = cv.cvtColor(frame_bgr, cv.COLOR_BGR2RGB)
-    resized = cv.resize(frame_rgb, (IMG_W, IMG_H), interpolation=cv.INTER_AREA)
-    arr = img_to_array(resized) / 255.0
-    return np.expand_dims(arr, axis=0)
-
-
-def predict_label(frame_bgr):
-    """Return (label_text, confidence_float)."""
-    if model is None:
-        return "model not loaded", 0.0
-    x = preprocess_frame_for_model(frame_bgr)
-    probs = model.predict(x, verbose=0)[0]  # shape (10,)
-    idx = int(np.argmax(probs))
-    label = CLASS_NAMES[idx] if 0 <= idx < len(CLASS_NAMES) else f"class {idx}"
-    conf = float(probs[idx])
-    return label, conf
-
-
-
-def upload_video():
-    global selected_video_path, video_capture
-    initial_dir = os.path.abspath("Video")
-    os.makedirs(initial_dir, exist_ok=True)
-    filename = filedialog.askopenfilename(
-        title="Select video",
-        initialdir=initial_dir,
-        filetypes=[("Video files", "*.mp4 *.avi *.mov *.mkv"), ("All files", "*.*")]
-    )
-    if filename:
-        selected_video_path = filename
-        status_var.set(f"Loaded video: {os.path.basename(filename)}")
-        if video_capture is not None:
-            video_capture.release()
-            cv.destroyAllWindows()
-        video_capture = cv.VideoCapture(filename)
-
-
-def start_behaviour_monitoring():
-    global video_capture
-    if model is None:
-        messagebox.showwarning("Model not loaded", "Please click 'Generate & Load AWGRD Model' first.")
-        return
-    if video_capture is None:
-        messagebox.showwarning("No video", "Please upload a video first.")
-        return
-
-    status_var.set("Monitoring started (press 'q' in the video window to stop).")
-    root.update_idletasks()
-
-    window_name = "Frame"
-    while True:
-        ret, frame = video_capture.read()
-        if not ret:
-            break
-
-        label, conf = predict_label(frame)
-        text = f"{label}: {conf:.2f}"
-        cv.putText(frame, text, (20, 30), cv.FONT_HERSHEY_SIMPLEX, 0.9, (0, 255, 0), 2)
-        cv.imshow(window_name, frame)
-
-        key = cv.waitKey(1) & 0xFF
-        if key == ord('q'):
-            break
-
-    video_capture.release()
-    video_capture = None
-    cv.destroyAllWindows()
-    status_var.set("Monitoring stopped.")
-
-
-def on_exit():
-    try:
-        if video_capture is not None:
-            video_capture.release()
+    
+    
+Def upload():
+    Global video
+    Filename = filedialog.askopenfilename(initialdir=”Video”)
+    Pathlabel.config(text=”          input loaded”)
+    Video = cv.VideoCapture(filename)
+    
+Def startMonitoring():
+        While(True):
+            Ret, frame = video.read()
+            Print(ret)
+            If ret == True:
+                cv.imwrite(“test.jpg”,frame)
+                imagetest = image.load_img(“test.jpg”, target_size = (150,150))
+                imagetest = image.img_to_array(imagetest)
+                imagetest = np.expand_dims(imagetest, axis = 0)
+                predict = awgrd_model.predict_classes(imagetest)
+                print(predict)
+                msg = “”;
+                if str(predict[0]) == ‘0’:
+                        msg = ‘Safe Driving’
+                if str(predict[0]) == ‘1’:
+                        msg = ‘Using Phone’
+                if str(predict[0]) == ‘2’:
+                        msg = ‘using/ talking phone’
+                if str(predict[0]) == ‘3’:
+                        msg = ‘Using Phone’
+                if str(predict[0]) == ‘4’:
+                        msg = ‘Using/Talking Phone’
+                if str(predict[0]) == ‘5’:
+                        msg = ‘distracted/Radio Operating’
+                if str(predict[0]) == ‘6’:
+                        msg = ‘driver is distracted’
+                if str(predict[0]) == ‘7’:
+                        msg = ‘dristracted / Reaching Behind’
+                if str(predict[0]) == ‘8’:
+                        msg = ‘performing an action’
+                if str(predict[0]) == ‘9’:
+                        msg = ‘Talking and driving’
+                text_label = “{}: {:4f}”.format(msg, 80)
+                cv.putText(frame, text_label, (20, 20), cv.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 0), 2)
+                cv.imshow(‘Frame’, frame)
+                if cv.waitKey(2500) & 0xFF == ord(‘q’):
+                   break
+            else:
+                break
+        video.release()
         cv.destroyAllWindows()
-    finally:
-        root.destroy()
 
 
+def exit():
+    global main
+    main.destroy()
+  
 
-root = tk.Tk()
-root.title("Video-Based Abnormal Driving Behavior Detection")
-root.geometry("800x500")  # as in the PDF
+font = (‘times’, 16, ‘bold’)
+title = Label(main, text=’Video-Based Abnormal Driving Behavior Detection via Deep Learning Fusions’,anchor=W, justify=LEFT)
+title.config(bg=’black’, fg=’white’)  
+title.config(font=font)           
+title.config(height=3, width=120)       
+title.place(x=0,y=5)
 
-title_font = ("Times", 16, "bold")
-btn_font   = ("Times", 14, "bold")
 
-title_lbl = tk.Label(root,
-                     text="Video-Based Abnormal Driving Behavior Detection via Deep Learning Fusions",
-                     anchor="w", justify="left",
-                     bg="black", fg="white",
-                     font=title_font)
-title_lbl.place(x=0, y=5, width=800, height=60)
+font1 = (‘times’, 14, ‘bold’)
+loadButton = Button(main, text=”Generate & Load AWGRD Model”, command=loadModel)
+loadButton.place(x=50,y=200)
+loadButton.config(font=font1)  
 
-status_var = tk.StringVar(value="Ready.")
-status_lbl = tk.Label(root, textvariable=status_var, bg="#FF8C00", fg="white", font=btn_font, anchor="w", padx=10)
-status_lbl.place(x=50, y=250, width=700, height=40)
+pathlabel = Label(main)
+pathlabel.config(bg=’DarkOrange1’, fg=’white’)  
+pathlabel.config(font=font1)           
+pathlabel.place(x=50,y=250)
 
-btn_load = tk.Button(root, text="Generate & Load AWGRD Model", font=btn_font, command=generate_and_load_model)
-btn_load.place(x=50, y=120, width=350, height=40)
 
-btn_upload = tk.Button(root, text="Upload Video", font=btn_font, command=upload_video)
-btn_upload.place(x=50, y=170, width=200, height=40)
+uploadButton = Button(main, text=”Upload input”, command=upload)
+uploadButton.place(x=50,y=300)
+uploadButton.config(font=font1)
 
-btn_start = tk.Button(root, text="Start Behaviour Monitoring", font=btn_font, command=start_behaviour_monitoring)
-btn_start.place(x=260, y=170, width=300, height=40)
+uploadButton = Button(main, text=”Start Behaviour Monitoring”, command=startMonitoring)
+uploadButton.place(x=50,y=350)
+uploadButton.config(font=font1)
 
-btn_exit = tk.Button(root, text="Exit", font=btn_font, command=on_exit)
-btn_exit.place(x=580, y=170, width=100, height=40)
+exitButton = Button(main, text=”Exit”, command=exit)
+exitButton.place(x=50,y=400)
+exitButton.config(font=font1)
 
-if __name__ == "__main__":
-    root.protocol("WM_DELETE_WINDOW", on_exit)
-    root.mainloop()
+main.config(bg=’chocolate1’)
+main.mainloop()
